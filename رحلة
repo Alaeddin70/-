@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>لعبة التحدي</title>
+
+  <!-- ستايل و فونت -->
+  <style>
+    body {
+      font-family: 'Press Start 2P', cursive;
+      background: #000;
+      color: #0f0;
+      text-align: center;
+      padding: 30px;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 30px;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    #challengeBtn {
+      padding: 15px 30px;
+      font-size: 14px;
+      background: #111;
+      color: #0f0;
+      border: 2px solid #0f0;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    #challengeBtn:hover {
+      background: #0f0;
+      color: #000;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    #winForm, #resultTable {
+      display: none;
+      margin-top: 30px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input, select {
+      padding: 8px;
+      border: 2px solid #0f0;
+      background: #000;
+      color: #0f0;
+      border-radius: 5px;
+      width: 250px;
+    }
+
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 80%;
+    }
+
+    td, th {
+      border: 1px solid #0f0;
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    th {
+      background-color: #111;
+    }
+  </style>
+
+  <!-- مكتبات PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+  <h1>لعبة التحدي</h1>
+  <button id="challengeBtn">اضغط بسرعة!</button>
+  <div id="status">المرحلة: 1</div>
+
+  <!-- فورم التسجيل -->
+  <div id="winForm">
+    <p>مبروك! عبي الفورم التالي:</p>
+    <form id="playerForm" onsubmit="submitForm(event)">
+      <input type="text" placeholder="الاسم و اللقب" name="name" required>
+      <input type="text" placeholder="اسم و لقب الولي" name="parentName" required>
+      <input type="date" name="birthDate" required>
+      <input type="text" placeholder="مكان الولادة" name="birthPlace" required>
+      <input type="tel" placeholder="رقم الهاتف الجوال" name="phone" required>
+      <input type="tel" placeholder="رقم هاتف الولي" name="parentPhone" required>
+      <select name="isMember" required>
+        <option value="">هل أنت منخرط بالحركة؟</option>
+        <option value="نعم">نعم</option>
+        <option value="لا">لا</option>
+      </select>
+      <input type="submit" value="تسجيل">
+    </form>
+  </div>
+
+  <!-- جدول المعلومات -->
+  <div id="resultTable">
+    <h2>معلوماتك:</h2>
+    <table>
+      <tbody id="infoBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let stage = 1;
+    let timeLimit = 2000;
+    let timer;
+    let canClick = false;
+
+    const btn = document.getElementById('challengeBtn');
+    const status = document.getElementById('status');
+    const winForm = document.getElementById('winForm');
+    const resultTable = document.getElementById('resultTable');
+    const infoBody = document.getElementById('infoBody');
+
+    function nextStage() {
+      canClick = false;
+      status.innerText = `استعد للمرحلة: ${stage}`;
+      
+      setTimeout(() => {
+        canClick = true;
+        status.innerText = `المرحلة: ${stage} - اضغط الآن!`;
+
+        timer = setTimeout(() => {
+          if (canClick) {
+            status.innerText = "خسرت! كنت بطيء!";
+            btn.disabled = true;
+          }
+        }, timeLimit);
+      }, 1000);
+    }
+
+    btn.addEventListener('click', () => {
+      if (!canClick) return;
+
+      clearTimeout(timer);
+      stage++;
+      if (stage > 3) {
+        status.innerText = "ربحت التحدي!";
+        btn.style.display = 'none';
+        winForm.style.display = 'block';
+      } else {
+        timeLimit -= 500;
+        nextStage();
+      }
+    });
+
+    function submitForm(event) {
+      event.preventDefault();
+      const form = event.target;
+      const data = new FormData(form);
+
+      infoBody.innerHTML = '';
+      for (let [key, value] of data.entries()) {
+        const row = `<tr><th>${getLabel(key)}</th><td>${value}</td></tr>`;
+        infoBody.innerHTML += row;
+      }
+
+      winForm.style.display = 'none';
+      resultTable.style.display = 'block';
+
+      // توليد PDF
+      setTimeout(() => {
+        generatePDF();
+      }, 1000);
+    }
+
+    function getLabel(fieldName) {
+      const labels = {
+        name: 'الاسم و اللقب',
+        parentName: 'اسم و لقب الولي',
+        birthDate: 'تاريخ الولادة',
+        birthPlace: 'مكان الولادة',
+        phone: 'رقم الهاتف الجوال',
+        parentPhone: 'رقم هاتف الولي',
+        isMember: 'منخرط بالحركة؟'
+      };
+      return labels[fieldName] || fieldName;
+    }
+
+    function generatePDF() {
+      const element = document.getElementById('resultTable');
+      html2canvas(element).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF();
+
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+        pdf.save("معلومات_اللاعب.pdf");
+      });
+    }
+
+    nextStage();
+  </script>
+</body>
+</html>
